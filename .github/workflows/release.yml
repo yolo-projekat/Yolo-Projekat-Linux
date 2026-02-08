@@ -1,4 +1,5 @@
 name: Build DEB and RPM Packages
+
 on:
   push:
     tags:
@@ -9,11 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # KESIRANJE RUBY GEMS (za FPM)
+      # KESIRANJE RUBY GEMS (za FPM alat)
       - name: Cache Ruby Gems
         uses: actions/cache@v3
         with:
@@ -33,7 +35,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y rpm
           gem install --no-document fpm
 
-      # KESIRANJE PIP PAKETA
+      # KESIRANJE PIP PAKETA (ubrzava build)
       - name: Cache Pip packages
         uses: actions/cache@v3
         with:
@@ -46,26 +48,47 @@ jobs:
         id: vars
         run: |
           echo "tag_version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          # Konvertuje requirements.txt u format koji FPM razume za zavisnosti paketa
           reqs=$(cat requirements.txt | grep -v '^#' | sed 's/==.*//' | sed 's/>=.*//' | xargs -I {} echo -d "python3-{}" | xargs)
           echo "fpm_deps=$reqs" >> $GITHUB_OUTPUT
 
       - name: Prepare Build Directory
         run: |
+          # 1. Preuzimanje YOLO modela (rešava "No such file" grešku)
+          wget https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt
+
+          # 2. Pravljenje strukture direktorijuma za Linux paket
           mkdir -p build/usr/share/my-robot-app
           mkdir -p build/usr/bin
           mkdir -p build/usr/share/applications
+
+          # 3. Kopiranje izvornog koda i resursa
           cp main.py yolov8n.pt style.css requirements.txt build/usr/share/my-robot-app/
+
+          # 4. Kreiranje pokretačke skripte u /usr/bin
           echo -e '#!/bin/bash\npython3 /usr/share/my-robot-app/main.py "$@"' > build/usr/bin/my-robot-app
           chmod +x build/usr/bin/my-robot-app
 
+          # 5. Kreiranje Desktop prečice (tako da se vidi u meniju aplikacija)
+          cat <<EOF > build/usr/share/applications/com.nucleus.robot.desktop
+          [Desktop Entry]
+          Name=YOLO Robot Control
+          Comment=Robot control with YOLOv8 detection
+          Exec=/usr/bin/my-robot-app
+          Icon=system-run
+          Terminal=false
+          Type=Application
+          Categories=Utility;Development;
+          EOF
+
       - name: Build Packages (DEB & RPM)
         run: |
-          # Build DEB
+          # Pravljenje DEB paketa (Debian/Ubuntu)
           fpm -s dir -t deb -n "robot-control-app" -v ${{ steps.vars.outputs.tag_version }} \
             -C build -p robot-control-app.deb -d "python3" -d "python3-gi" \
             -d "gir1.2-gtk-4.0" -d "gir1.2-adw-1" ${{ steps.vars.outputs.fpm_deps }}
 
-          # Build RPM
+          # Pravljenje RPM paketa (Fedora/CentOS)
           fpm -s dir -t rpm -n "robot-control-app" -v ${{ steps.vars.outputs.tag_version }} \
             -C build -p robot-control-app.rpm -d "python3" -d "python3-gobject" \
             -d "gtk4" -d "libadwaita" ${{ steps.vars.outputs.fpm_deps }}

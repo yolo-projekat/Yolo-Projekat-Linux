@@ -1,14 +1,15 @@
-import gi
+import os
 import asyncio
 import threading
 import requests
 import cv2
 import numpy as np
-import io
 import queue
+from pathlib import Path
 from PIL import Image
 from ultralytics import YOLO
 import websockets
+import gi
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -19,8 +20,17 @@ class RobotControlApp(Adw.Application):
         super().__init__(application_id='com.nucleus.robot.yolo', 
                          flags=Gio.ApplicationFlags.FLAGS_NONE)
         
-        # YOLO & Logic
-        self.model = YOLO("yolov8n.pt")
+        # Putanja do modela u Documents folderu
+        self.model_path = Path.home() / "Documents" / "yolov8n.pt"
+        
+        # Inicijalizacija modela (pokušaj iz Documents, inače fallback na lokalni)
+        if self.model_path.exists():
+            print(f"Loading model from: {self.model_path}")
+            self.model = YOLO(str(self.model_path))
+        else:
+            print("Warning: Model not found in Documents. Searching in current directory...")
+            self.model = YOLO("yolov8n.pt")
+
         self.conf_threshold = 0.3
         self.image_queue = queue.Queue(maxsize=1)
         self.is_tracking = False
@@ -30,20 +40,16 @@ class RobotControlApp(Adw.Application):
         self.loop = asyncio.new_event_loop()
 
     def do_activate(self):
-        # Glavni prozor
         self.win = Adw.ApplicationWindow(application=self)
         self.win.set_title("YOLOv8 Robot Control Pro")
         self.win.set_default_size(1000, 800)
 
-        # Glavni kontejner
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.win.set_content(vbox)
 
-        # Header Bar
         header = Adw.HeaderBar()
         vbox.append(header)
 
-        # Horizontalni split (Video | Logovi/Kontrole)
         content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         vbox.append(content_box)
 
@@ -57,7 +63,6 @@ class RobotControlApp(Adw.Application):
         self.video_image.set_valign(Gtk.Align.CENTER)
         video_stack.append(self.video_image)
 
-        # Kontrole ispod videa
         ctrl_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         ctrl_card.set_halign(Gtk.Align.CENTER)
         
@@ -82,35 +87,30 @@ class RobotControlApp(Adw.Application):
 
         content_box.append(status_panel)
 
-        # Keyboard Bindings
         evk = Gtk.EventControllerKey()
         evk.connect("key-pressed", self.on_key_down)
         evk.connect("key-released", self.on_key_up)
         self.win.add_controller(evk)
 
-        # CSS
         self.load_css()
 
-        # Start Threads
         threading.Thread(target=self.run_asyncio_loop, daemon=True).start()
         threading.Thread(target=self.video_stream_thread, daemon=True).start()
         
-        # UI Refresh Timer (GLib)
         GLib.timeout_add(30, self.update_ui_image)
-
         self.win.present()
 
     def load_css(self):
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_path("style.css")
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-
-    def add_log(self, msg):
-        print(f"Log: {msg}") # Može se dodati u Gtk.ListBox po želji
+        try:
+            css_provider.load_from_path("style.css")
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(),
+                css_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
+        except:
+            print("Style.css not found, skipping...")
 
     def toggle_tracking(self, btn):
         self.is_tracking = not self.is_tracking
@@ -130,19 +130,16 @@ class RobotControlApp(Adw.Application):
                     img_array = np.frombuffer(response.content, dtype=np.uint8)
                     frame = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
-                    # YOLO Detekcija
                     results = self.model.predict(frame, conf=self.conf_threshold, verbose=False)
                     annotated_frame = results[0].plot()
 
-                    # Tracking logika (Banana = 46)
                     if self.is_tracking:
                         self.process_tracking(results[0], frame.shape[1])
 
-                    # Priprema za GTK
                     _, buffer = cv2.imencode('.png', annotated_frame)
                     GLib.idle_add(self.update_image_data, buffer.tobytes())
             except Exception as e:
-                print(f"Stream error: {e}")
+                pass
 
     def update_image_data(self, data):
         loader = GdkPixbuf.PixbufLoader.new_with_type("png")
@@ -153,12 +150,12 @@ class RobotControlApp(Adw.Application):
         return False
 
     def update_ui_image(self):
-        return True # Nastavlja tajmer
+        return True
 
     def process_tracking(self, result, width):
         found = False
         for box in result.boxes:
-            if int(box.cls.item()) == 46:
+            if int(box.cls.item()) == 46: # Banana
                 found = True
                 x1, _, x2, _ = box.xyxy[0].tolist()
                 cx = (x1 + x2) / 2

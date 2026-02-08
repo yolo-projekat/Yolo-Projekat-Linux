@@ -1,0 +1,80 @@
+name: Build DEB and RPM Packages
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # KESIRANJE RUBY GEMS (za FPM)
+      - name: Cache Ruby Gems
+        uses: actions/cache@v3
+        with:
+          path: vendor/bundle
+          key: ${{ runner.os }}-gem-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gem-
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.0"
+          bundler-cache: true
+
+      - name: Install FPM and RPM tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y rpm
+          gem install --no-document fpm
+
+      # KESIRANJE PIP PAKETA
+      - name: Cache Pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Extract Version and Requirements
+        id: vars
+        run: |
+          echo "tag_version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          reqs=$(cat requirements.txt | grep -v '^#' | sed 's/==.*//' | sed 's/>=.*//' | xargs -I {} echo -d "python3-{}" | xargs)
+          echo "fpm_deps=$reqs" >> $GITHUB_OUTPUT
+
+      - name: Prepare Build Directory
+        run: |
+          mkdir -p build/usr/share/my-robot-app
+          mkdir -p build/usr/bin
+          mkdir -p build/usr/share/applications
+          cp main.py yolov8n.pt style.css requirements.txt build/usr/share/my-robot-app/
+          echo -e '#!/bin/bash\npython3 /usr/share/my-robot-app/main.py "$@"' > build/usr/bin/my-robot-app
+          chmod +x build/usr/bin/my-robot-app
+
+      - name: Build Packages (DEB & RPM)
+        run: |
+          # Build DEB
+          fpm -s dir -t deb -n "robot-control-app" -v ${{ steps.vars.outputs.tag_version }} \
+            -C build -p robot-control-app.deb -d "python3" -d "python3-gi" \
+            -d "gir1.2-gtk-4.0" -d "gir1.2-adw-1" ${{ steps.vars.outputs.fpm_deps }}
+
+          # Build RPM
+          fpm -s dir -t rpm -n "robot-control-app" -v ${{ steps.vars.outputs.tag_version }} \
+            -C build -p robot-control-app.rpm -d "python3" -d "python3-gobject" \
+            -d "gtk4" -d "libadwaita" ${{ steps.vars.outputs.fpm_deps }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            robot-control-app.deb
+            robot-control-app.rpm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

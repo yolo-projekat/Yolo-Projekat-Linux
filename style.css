@@ -1,0 +1,24 @@
+window {
+  background-color: #fafafa;
+}
+
+.sidebar {
+  background-color: #ebebeb;
+  border-left: 1px solid #dcdcdc;
+  padding: 20px;
+}
+
+label {
+  font-weight: bold;
+  color: #333;
+}
+
+button.suggested-action {
+  padding: 10px 20px;
+  font-weight: bold;
+}
+
+image {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}

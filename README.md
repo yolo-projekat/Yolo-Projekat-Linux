@@ -45,20 +45,7 @@
 ## 🔧 Instalacija i Pokretanje
 
 ### 📥 Preko paketa (Preporučeno)
-Preuzmite `.deb` (Debian/Ubuntu) ili `.rpm` (Fedora) sa **Releases** taba i instalirajte ga:
-
-```bash
-# Za Ubuntu/Debian
-sudo apt install ./robot-control-app.deb
-
-# Za Fedoru
-sudo dnf install ./robot-control-app.rpm
-⌨️ Prečice
-Arrow Keys: Upravljanje robotom.
-
-Space: Emergency Stop (Tux se zaustavlja).
-
-🍌 Button: Autonomno praćenje voća.
+Preuzmite `.deb` (Debian/Ubuntu) ili `.rpm` (Fedora) sa **Releases** taba i instalirajte ga.
 
 <div align="center">
 

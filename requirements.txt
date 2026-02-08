@@ -1,0 +1,12 @@
+# UI i Sistemske integracije
+PyGObject
+
+# Rad sa slikom i mrežom
+opencv-python
+pillow
+requests
+numpy
+
+# AI i Robotika
+ultralytics
+websockets

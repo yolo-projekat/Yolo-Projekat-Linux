@@ -45,7 +45,7 @@
 ## 🔧 Instalacija i Pokretanje
 
 ### 📥 Preko paketa (Preporučeno)
-Preuzmite `.deb` (Debian/Ubuntu) ili `.rpm` (Fedora) sa **Releases** taba i instalirajte ga.
+Preuzmite `.deb` (Debian/Ubuntu) ili `.rpm` (Fedora) sa **Releases** taba i instalirajte ga. yolov8n.pt treba da se nalazi u Documents folderu.
 
 <div align="center">
 

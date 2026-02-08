@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🐧 YOLO Robot Linux 
+# 🐧 YOLO Projekat Linux 
 ### *Native GTK4 Komandni Panel za Autonomnu Sistemsku Kontrolu*
 
 [![GTK4](https://img.shields.io/badge/Framework-GTK_4-62a0ea?style=for-the-badge&logo=gnome&logoColor=white)](https://www.gtk.org/)

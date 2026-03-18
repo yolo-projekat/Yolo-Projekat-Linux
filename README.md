@@ -60,7 +60,7 @@ Sistem se oslanjao na lokalnu instalaciju unapred pripremljenih paketa:
 
 <div align="center">
 
-**Autor:** Danilo Stoletović
+**Autor:** Danilo Stoletović • **Mentor:** Dejan Batanjac
 **ETŠ „Nikola Tesla“ Niš • 2026**
 
 </div>
